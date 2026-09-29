@@ -1,0 +1,4 @@
+# app-ads.txt de Mes Repas
+# Remplace la ligne ci-dessous par celle fournie par AdMob (Applications > app-ads.txt),
+# puis supprime le « # » en début de ligne.
+# google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
