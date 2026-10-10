@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rejoindre un groupe · Mes Repas</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="img/favicon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- Page ouverte par l'appli (Profil → Sauvegarde → « Rejoindre un groupe ») : le membre choisit le dossier
+     « Mes Repas » partagé avec lui dans le sélecteur Google (Picker). Ce choix donne à l'appli l'accès à ce
+     dossier (droit drive.file), puis la page renvoie vers l'appli avec son identifiant. Rien n'est envoyé
+     ailleurs qu'à Google ; la page n'a pas de serveur. -->
+<main class="wrap" style="max-width:520px;padding-top:32px">
+  <h1>Rejoindre un groupe</h1>
+  <p id="msg">Connecte-toi avec ton compte Google, puis choisis le dossier « Mes Repas » qu'on a partagé avec toi.</p>
+  <p><button id="go" class="badge" disabled>Choisir le dossier partagé</button></p>
+  <p><a id="back" class="badge" hidden>Revenir à Mes Repas</a></p>
+</main>
+<script>
+// Identifiants publics du projet Google Cloud « Mes Repas » (mes-repas-510814) : la clé est limitée à
+// l'API Picker et à ce site, l'identifiant OAuth Web à l'origine https://mes-repas-app.github.io
+const CLIENT_ID = '648828738910-su7l5k4ljo8pd3he6rth4fn4nsqd8hd4.apps.googleusercontent.com';
+const API_KEY = 'AIzaSyAaiTjUtKTkDYns5FWBZ2eXiod8VM75494'; // « Picker - page Rejoindre (site) » : limitée à l'API Picker et à ce site
+const APP_ID = '648828738910'; // numéro du projet : l'accès accordé vaut pour l'appli Android du même projet
+const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const RETURN = 'mesrepas://rejoindre';
+const FOLDER = 'application/vnd.google-apps.folder';
+
+const $ = (id) => document.getElementById(id);
+const say = (t) => ($('msg').textContent = t);
+const hint = new URLSearchParams(location.hash.slice(1)).get('email') || ''; // compte connecté dans l'appli
+let tokenClient = null;
+let ready = 0;
+const enable = () => ++ready === 2 && ($('go').disabled = false);
+
+function gisLoaded() {
+  tokenClient = google.accounts.oauth2.initTokenClient({ client_id: CLIENT_ID, scope: SCOPE, login_hint: hint, callback: '' });
+  enable();
+}
+function gapiLoaded() {
+  gapi.load('picker', enable);
+}
+
+$('go').onclick = () => {
+  tokenClient.callback = (r) => (r.error ? say('Connexion à Google annulée ou refusée. Réessaie.') : pick(r.access_token));
+  tokenClient.requestAccessToken({ prompt: '' });
+};
+
+function pick(token) {
+  const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+    .setOwnedByMe(false) // « Partagés avec moi »
+    .setIncludeFolders(true)
+    .setSelectFolderEnabled(true)
+    .setMimeTypes(FOLDER)
+    .setQuery('Mes Repas');
+  new google.picker.PickerBuilder()
+    .addView(view)
+    .setOAuthToken(token)
+    .setDeveloperKey(API_KEY)
+    .setAppId(APP_ID)
+    .setLocale('fr')
+    .setTitle('Choisis le dossier « Mes Repas » partagé avec toi')
+    .setCallback((data) => {
+      if (data.action !== google.picker.Action.PICKED) return;
+      const doc = data.docs[0];
+      const url = `${RETURN}?dossier=${encodeURIComponent(doc.id)}`;
+      say(`Dossier choisi : « ${doc.name} ». Retour à l'appli…`);
+      $('back').href = url;
+      $('back').hidden = false;
+      location.href = url; // si le navigateur bloque le retour automatique, le bouton reste là
+    })
+    .build()
+    .setVisible(true);
+}
+</script>
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>
